@@ -1,0 +1,33 @@
+Configuration:
+  status: warn
+  name: YAMLConfig
+
+  properties:
+    property:
+      name: filename
+      value: server.log
+
+  appenders:
+    Console:
+      name: STDOUT
+      PatternLayout:
+        Pattern: "%d %p %C{1.} [%t] %m%n"
+    File:
+      name: FileAppender
+      fileName: ${filename}
+      PatternLayout:
+        Pattern: "%d %p %C{1.} [%t] %m%n"
+      Filters:
+        ThresholdFilter:
+          level: error
+
+  Loggers:
+    logger:
+      - name: cz.kiv.zcu.ds.bankserver
+        level: debug
+        AppenderRef:
+          ref: FileAppender
+    Root:
+      level: debug
+      AppenderRef:
+        ref: STDOUT
