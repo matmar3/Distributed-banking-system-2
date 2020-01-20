@@ -26,8 +26,11 @@ public class Utils {
         return rand_time * 1000;
     }
 
-    public static int getUDRNodeIdx() {
-        return r.nextInt(Config.nodesCount());
+    public static int getUDRNodeIdx(int nodeNumber) {
+        int[] neighbours = Config.getNode(nodeNumber).getNeighbours();
+
+        int idx = r.nextInt(neighbours.length);
+        return neighbours[idx];
     }
 
     public static int getUDRAmount() {

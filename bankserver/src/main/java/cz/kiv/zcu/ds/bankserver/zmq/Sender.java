@@ -14,6 +14,12 @@ public class Sender extends Thread {
 
     private static Logger logger = LoggerFactory.getLogger(Sender.class);
 
+    private int selfNodeNumber;
+
+    public Sender(int nodeNumber) {
+       this.selfNodeNumber = nodeNumber;
+    }
+
     @Override
     public void run() {
         while (!isInterrupted()) {
@@ -22,7 +28,7 @@ public class Sender extends Thread {
                 sleep(Utils.getUDRSleepTime());
 
                 // send request
-                send(Utils.getUDRNodeIdx(), Utils.getUDRAmount(), Utils.getUDRBankOperation());
+                send(selfNodeNumber, Utils.getUDRNodeIdx(selfNodeNumber), Utils.getUDRAmount(), Utils.getUDRBankOperation());
             } catch (InterruptedException e) {
                 logger.trace("Cannot perform thead sleep.");
             }
@@ -30,7 +36,7 @@ public class Sender extends Thread {
 
     }
 
-    static void send(int idx, int amount, String operation) {
+    static void send(int senderIdx, int idx, int amount, String operation) {
         Node node = Config.getNode(idx);
 
         ZContext context = new ZContext();
@@ -42,7 +48,7 @@ public class Sender extends Thread {
         BankRequest a = new BankRequest();
         a.setAmount(15000);
         a.setOperation("CREDIT");
-        a.setSender(0); // TODO jak zjistim odesilatele?
+        a.setSender(senderIdx);
 
         String msg = Utils.serialize(a);
         socket.send(msg.getBytes(ZMQ.CHARSET), 0);

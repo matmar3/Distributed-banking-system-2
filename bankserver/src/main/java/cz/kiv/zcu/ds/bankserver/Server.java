@@ -3,13 +3,10 @@ package cz.kiv.zcu.ds.bankserver;
 import cz.kiv.zcu.ds.bankserver.config.Config;
 import cz.kiv.zcu.ds.bankserver.zmq.Listener;
 import cz.kiv.zcu.ds.bankserver.zmq.Sender;
+import org.apache.commons.cli.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.SocketException;
-import java.net.UnknownHostException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -17,19 +14,38 @@ public class Server {
 
     private static Logger logger = LoggerFactory.getLogger(Server.class);
 
-    public static void main(String[] args) throws SocketException, UnknownHostException {
+    public static void main(String[] args) {
 
-        try(final DatagramSocket socket = new DatagramSocket()){
-            socket.connect(InetAddress.getByName("8.8.8.8"), 10002);
-            System.out.println(socket.getLocalAddress().getHostAddress());
+        // Determines self node number
+
+        Options options = new Options();
+
+        Option nodeNumber = new Option("n", "node", true, "Node configuration number.");
+        nodeNumber.setRequired(true);
+        options.addOption(nodeNumber);
+
+        CommandLineParser parser = new DefaultParser();
+        HelpFormatter formatter = new HelpFormatter();
+        CommandLine cmd;
+        int selfNodeNumber = 0;
+
+        try {
+            cmd = parser.parse(options, args);
+            selfNodeNumber = Integer.parseInt(cmd.getOptionValue("node"));
+            logger.debug("Detected node configuration index: {}", selfNodeNumber);
+        } catch (Exception e) {
+            formatter.printHelp("bankServer", options);
+            System.exit(-1);
         }
+
+        // Runs listener and sender instances
 
         ExecutorService executor = Executors.newFixedThreadPool(Config.THREADS_C);
 
         logger.info("Starting servers");
 
-        Runnable l = new Listener(5000);
-        Runnable s = new Sender();
+        Runnable l = new Listener(selfNodeNumber,5000);
+        Runnable s = new Sender(selfNodeNumber);
 
         executor.execute(l);
         executor.execute(s);
@@ -52,7 +68,7 @@ public class Server {
                 BankRequest a = new BankRequest();
                 a.setAmount(15000);
                 a.setOperation("CREDIT");
-                a.setBank("a");
+                a.setSender(2);
                 String msg = Utils.serialize(a);
                 socket.send(msg.getBytes(ZMQ.CHARSET), 0);
 

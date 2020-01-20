@@ -1,6 +1,6 @@
 BOX_IMAGE = "hashicorp/bionic64"
 BOX_VER = "1.0.282"
-NODE_COUNT = 1
+NODE_COUNT = 2 # 5 celkem
 
 Vagrant.configure(2) do |config|
 
@@ -17,20 +17,17 @@ Vagrant.configure(2) do |config|
                 sudo apt-get update
                 sudo apt-get -y install maven
                 sudo apt-get -y autoremove
-                cd /vagrant/bankserver
-                mvn package
-                cd target
-                java -jar bank-server.jar
             SHELL
-            #subconfig.trigger.after :up do |trigger|
-             #   trigger.name = "Run bank-server"
-              #  trigger.run_remote = {
-               #     inline: <<-SHELL
-                #    cp /vagrant/bankserver/target
-                #    java -jar bank-server.jar
-                #    SHELL
-                #}
-            #end
+            subconfig.trigger.after :up do |trigger|
+                trigger.name = "Run bank-server"
+                trigger.run_remote = {
+                    inline: <<-SHELL
+                        cd /vagrant/bankserver
+                        mvn package
+                        java -jar target/bank-server.jar -n #{i - 1} &
+                    SHELL
+                }
+            end
         end
     end
 

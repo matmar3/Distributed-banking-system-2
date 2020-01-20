@@ -5,7 +5,7 @@ Configuration:
   properties:
     property:
       name: filename
-      value: server.log
+      value: /vagrant/server.log
 
   appenders:
     Console:
@@ -17,9 +17,6 @@ Configuration:
       fileName: ${filename}
       PatternLayout:
         Pattern: "%d %5p %25C{1.} [%17t] %m%n"
-      Filters:
-        ThresholdFilter:
-          level: error
 
   Loggers:
     logger:

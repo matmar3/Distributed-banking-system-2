@@ -30,6 +30,7 @@ public class Config {
             nodes = mapper.readValue(Config.class.getClassLoader().getResourceAsStream("nodes.yaml"), Nodes.class);
         } catch (IOException e) {
             logger.error("Cannot loads nodes configuration.");
+            System.exit(-2);
         }
     }
 

@@ -15,9 +15,12 @@ public class Listener extends Thread {
 
     private static Logger logger = LoggerFactory.getLogger(Listener.class);
 
+    private int selfNodeNumber;
+
     private int port;
 
-    public Listener(int port) {
+    public Listener(int nodeNumber, int port) {
+        this.selfNodeNumber = nodeNumber;
         this.port = port;
     }
 
@@ -54,7 +57,7 @@ public class Listener extends Thread {
         }
         else {
             Account.getInstance().debit(bankRequest.getAmount());
-            Sender.send(bankRequest.getSender(), bankRequest.getAmount(), BankOperation.CREDIT.toString());
+            Sender.send(selfNodeNumber, bankRequest.getSender(), bankRequest.getAmount(), BankOperation.CREDIT.toString());
         }
 
         logger.debug("Bank request successfully performed.");
