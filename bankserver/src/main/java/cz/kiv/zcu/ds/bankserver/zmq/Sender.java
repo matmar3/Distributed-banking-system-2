@@ -10,11 +10,15 @@ import org.zeromq.SocketType;
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 
+import java.util.HashMap;
+
 public class Sender extends Thread {
 
     private static Logger logger = LoggerFactory.getLogger(Sender.class);
 
     private int selfNodeNumber;
+
+    private static volatile HashMap<Integer, ZMQ.Socket> sockets = new HashMap<>();
 
     public Sender(int nodeNumber) {
        this.selfNodeNumber = nodeNumber;
@@ -36,14 +40,18 @@ public class Sender extends Thread {
 
     }
 
-    static void send(int senderIdx, int idx, int amount, String operation) {
-        Node node = Config.getNode(idx);
-
+    private static synchronized void createConnection(int senderIdx, String ip, int port) {
         ZContext context = new ZContext();
         ZMQ.Socket socket = context.createSocket(SocketType.PAIR);
-        socket.connect("tcp://" + node.getIp() + ":" + node.getPort());
+        socket.connect("tcp://" + ip + ":" + port);
 
-        logger.debug("Connecting to {} on port {}.", node.getIp(), node.getPort());
+        logger.debug("Connecting to {} on port {}.", ip, port);
+
+        sockets.put(senderIdx, socket);
+    }
+
+    static void send(int senderIdx, int idx, int amount, String operation) {
+        Node node = Config.getNode(idx);
 
         BankRequest a = new BankRequest();
         a.setAmount(15000);
@@ -51,8 +59,21 @@ public class Sender extends Thread {
         a.setSender(senderIdx);
 
         String msg = Utils.serialize(a);
-        socket.send(msg.getBytes(ZMQ.CHARSET), 0);
+
+        if (!sockets.containsKey(senderIdx)) {
+            createConnection(senderIdx, node.getIp(), node.getPort());
+        }
+        sockets.get(senderIdx).send(msg.getBytes(ZMQ.CHARSET), 0);
 
         logger.info("Sending bank request to {} on port {}.", node.getIp(), node.getPort());
     }
+
+    public void closeConnections() {
+        for (ZMQ.Socket socket : sockets.values()) {
+            socket.close();
+        }
+
+        sockets.clear();
+    }
+
 }
