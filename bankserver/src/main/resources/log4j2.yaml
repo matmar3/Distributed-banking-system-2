@@ -11,12 +11,12 @@ Configuration:
     Console:
       name: STDOUT
       PatternLayout:
-        Pattern: "%d %p %C{1.} [%t] %m%n"
+        Pattern: "%d %5p %25C{1.} [%17t] %m%n"
     File:
       name: FileAppender
       fileName: ${filename}
       PatternLayout:
-        Pattern: "%d %p %C{1.} [%t] %m%n"
+        Pattern: "%d %5p %25C{1.} [%17t] %m%n"
       Filters:
         ThresholdFilter:
           level: error
