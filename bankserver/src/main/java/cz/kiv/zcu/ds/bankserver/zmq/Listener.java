@@ -4,6 +4,7 @@ import cz.kiv.zcu.ds.bankserver.Account;
 import cz.kiv.zcu.ds.bankserver.config.Config;
 import cz.kiv.zcu.ds.bankserver.domain.MessageType;
 import cz.kiv.zcu.ds.bankserver.domain.BankRequest;
+import cz.kiv.zcu.ds.bankserver.util.LocalStateLogger;
 import cz.kiv.zcu.ds.bankserver.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,9 +20,12 @@ public class Listener extends Thread {
 
     private int port;
 
+    private LocalStateLogger lsl;
+
     public Listener(int nodeNumber, int port) {
         this.selfNodeNumber = nodeNumber;
         this.port = port;
+        this.lsl = null;
     }
 
     @Override
@@ -50,7 +54,17 @@ public class Listener extends Thread {
         }
 
         if (type == MessageType.MARKER) {
-            // TODO zpracuj marker
+            if (lsl == null) {
+                lsl = new LocalStateLogger(selfNodeNumber, Account.getInstance());
+                // TODO odesli markery na sousedy
+                // TODO zacni logovat vsechny prichozi kanaly
+            }
+            else {
+                // TODO prestan logovat zpravy od odesilatele
+                if (lsl.isLoggingDone()) {
+                    // TODO posli svuj stav do spolecne fronty pro vysledky
+                }
+            }
         }
         else {
             if (bankRequest.getAmount() < Config.MIN_AMOUNT || bankRequest.getAmount() > Config.MAX_AMOUNT) {
@@ -65,6 +79,10 @@ public class Listener extends Thread {
                 case DEBIT:
                     performDebit(bankRequest);
                     break;
+            }
+
+            if (lsl != null && lsl.isLogging(bankRequest.getSender())) {
+                lsl.saveMessage(bankRequest);
             }
 
             logger.debug("Bank request successfully performed.");
