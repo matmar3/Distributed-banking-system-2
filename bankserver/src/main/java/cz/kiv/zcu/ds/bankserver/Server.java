@@ -44,8 +44,8 @@ public class Server {
 
         logger.info("Starting servers");
 
-        Runnable l = new Listener(selfNodeNumber,5000);
-        Runnable s = new Sender(selfNodeNumber);
+        Listener l = new Listener(selfNodeNumber,5000);
+        Sender s = new Sender(selfNodeNumber);
 
         executor.execute(l);
         executor.execute(s);
@@ -54,6 +54,9 @@ public class Server {
         while (!executor.isTerminated()) {
             // wait until all tasks finish
         }
+
+        // Closing opened sockets
+        s.closeConnections();
 
         logger.info("Stopping servers");
 

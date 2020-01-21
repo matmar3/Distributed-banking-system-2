@@ -2,7 +2,7 @@ package cz.kiv.zcu.ds.bankserver.util;
 
 import com.google.gson.Gson;
 import cz.kiv.zcu.ds.bankserver.config.Config;
-import cz.kiv.zcu.ds.bankserver.domain.BankOperation;
+import cz.kiv.zcu.ds.bankserver.domain.MessageType;
 import cz.kiv.zcu.ds.bankserver.domain.BankRequest;
 
 import java.util.Random;
@@ -42,8 +42,8 @@ public class Utils {
     public static String getUDRBankOperation() {
         double number = r.nextDouble();
 
-        if (number <= 0.5) return BankOperation.CREDIT.toString();
-        else return BankOperation.DEBIT.toString();
+        if (number <= 0.5) return MessageType.CREDIT.toString();
+        else return MessageType.DEBIT.toString();
     }
 
 }

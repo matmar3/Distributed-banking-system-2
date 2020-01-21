@@ -2,7 +2,7 @@ package cz.kiv.zcu.ds.bankserver.zmq;
 
 import cz.kiv.zcu.ds.bankserver.Account;
 import cz.kiv.zcu.ds.bankserver.config.Config;
-import cz.kiv.zcu.ds.bankserver.domain.BankOperation;
+import cz.kiv.zcu.ds.bankserver.domain.MessageType;
 import cz.kiv.zcu.ds.bankserver.domain.BankRequest;
 import cz.kiv.zcu.ds.bankserver.util.Utils;
 import org.slf4j.Logger;
@@ -33,35 +33,55 @@ public class Listener extends Thread {
         logger.info("Start listening on port " + port + " ...");
 
         while (!isInterrupted()) {
-            performRequest(Utils.deserialize(socket.recvStr()));
+            handleReceivedMessage(Utils.deserialize(socket.recvStr()));
         }
+
+        socket.close();
     }
 
-    private void performRequest(BankRequest bankRequest) {
+    private void handleReceivedMessage(BankRequest bankRequest) {
         logger.debug("Processing bank request - operation: {}, amount: {}, from: {}",
                 bankRequest.getOperation(), bankRequest.getAmount(), bankRequest.getSender());
 
-        if (bankRequest.getOperation() == null) {
+        MessageType type = MessageType.resolve(bankRequest.getOperation());
+        if (type == null) {
             logger.error("Bank request operation missing.");
             return;
         }
 
-        if (bankRequest.getAmount() < Config.MIN_AMOUNT || bankRequest.getAmount() > Config.MAX_AMOUNT) {
-            logger.error("Invalid bank request amount.");
-            return;
-        }
-
-        if (BankOperation.CREDIT.toString().equals(bankRequest.getOperation())) {
-            Account.getInstance().credit(bankRequest.getAmount());
-            // nothing to do, sender already made debit
+        if (type == MessageType.MARKER) {
+            // TODO zpracuj marker
         }
         else {
-            Account.getInstance().debit(bankRequest.getAmount());
-            Sender.send(selfNodeNumber, bankRequest.getSender(), bankRequest.getAmount(), BankOperation.CREDIT.toString());
-        }
+            if (bankRequest.getAmount() < Config.MIN_AMOUNT || bankRequest.getAmount() > Config.MAX_AMOUNT) {
+                logger.error("Invalid bank request amount.");
+                return;
+            }
 
-        logger.debug("Bank request successfully performed.");
-        logger.debug("Account balance: {}", Account.getInstance().getBalance());
+            switch (type) {
+                case CREDIT:
+                    performCredit(bankRequest);
+                    break;
+                case DEBIT:
+                    performDebit(bankRequest);
+                    break;
+            }
+
+            logger.debug("Bank request successfully performed.");
+            logger.debug("Account balance: {}", Account.getInstance().getBalance());
+        }
+    }
+
+    private void performDebit(BankRequest bankRequest) {
+        if (!Account.getInstance().debit(bankRequest.getAmount())) {
+            return; // TODO pokud je zapnute logovani, mam tuto zpravu logovat?
+        }
+        Sender.send(selfNodeNumber, bankRequest.getSender(), bankRequest.getAmount(), MessageType.CREDIT.toString());
+    }
+
+    private void performCredit(BankRequest bankRequest) {
+        Account.getInstance().credit(bankRequest.getAmount());
+        // nothing to do, sender already made debit
     }
 
 }

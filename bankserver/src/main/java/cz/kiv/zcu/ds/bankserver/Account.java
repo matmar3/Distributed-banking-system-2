@@ -22,8 +22,11 @@ public class Account {
         this.balance += amount;
     }
 
-    public synchronized void debit(long amount) {
+    public synchronized boolean debit(long amount) {
+        if (this.balance - amount < 0) return false;
+
         this.balance -= amount;
+        return true;
     }
 
     public int getBalance() {

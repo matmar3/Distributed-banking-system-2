@@ -1,7 +1,9 @@
 package cz.kiv.zcu.ds.bankserver.zmq;
 
+import cz.kiv.zcu.ds.bankserver.Account;
 import cz.kiv.zcu.ds.bankserver.config.Config;
 import cz.kiv.zcu.ds.bankserver.domain.BankRequest;
+import cz.kiv.zcu.ds.bankserver.domain.MessageType;
 import cz.kiv.zcu.ds.bankserver.domain.Node;
 import cz.kiv.zcu.ds.bankserver.util.Utils;
 import org.slf4j.Logger;
@@ -31,13 +33,24 @@ public class Sender extends Thread {
                 // simulate some delay
                 sleep(Utils.getUDRSleepTime());
 
+                // generated data to send
+                int receiverNodeIdx = Utils.getUDRNodeIdx(selfNodeNumber);
+                int amount = Utils.getUDRAmount();
+                String operation = Utils.getUDRBankOperation();
+
+                // decrease balance if sending credit
+                if (MessageType.resolve(operation) == MessageType.CREDIT) {
+                    if (!Account.getInstance().debit(amount)) {
+                        continue; // cannot send this amount of money
+                    }
+                }
+
                 // send request
-                send(selfNodeNumber, Utils.getUDRNodeIdx(selfNodeNumber), Utils.getUDRAmount(), Utils.getUDRBankOperation());
+                send(selfNodeNumber, receiverNodeIdx, amount, operation);
             } catch (InterruptedException e) {
                 logger.trace("Cannot perform thead sleep.");
             }
         }
-
     }
 
     private static synchronized void createConnection(int senderIdx, String ip, int port) {
@@ -54,8 +67,8 @@ public class Sender extends Thread {
         Node node = Config.getNode(idx);
 
         BankRequest a = new BankRequest();
-        a.setAmount(15000);
-        a.setOperation("CREDIT");
+        a.setAmount(amount);
+        a.setOperation(operation);
         a.setSender(senderIdx);
 
         String msg = Utils.serialize(a);
