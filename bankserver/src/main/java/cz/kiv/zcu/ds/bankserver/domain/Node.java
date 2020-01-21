@@ -3,7 +3,7 @@ package cz.kiv.zcu.ds.bankserver.domain;
 public class Node {
 
     private String ip;
-    private int port;
+    private int[] ports;
     private int[] neighbours;
 
     public String getIp() {
@@ -14,12 +14,12 @@ public class Node {
         this.ip = ip;
     }
 
-    public int getPort() {
-        return port;
+    public int[] getPorts() {
+        return ports;
     }
 
-    public void setPort(int port) {
-        this.port = port;
+    public void setPorts(int[] ports) {
+        this.ports = ports;
     }
 
     public int[] getNeighbours() {

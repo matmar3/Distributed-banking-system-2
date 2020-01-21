@@ -1,9 +1,11 @@
 package cz.kiv.zcu.ds.bankserver;
 
 import cz.kiv.zcu.ds.bankserver.config.Config;
-import cz.kiv.zcu.ds.bankserver.zmq.Listener;
+import cz.kiv.zcu.ds.bankserver.domain.Node;
+import cz.kiv.zcu.ds.bankserver.zmq.ListenerManager;
 import cz.kiv.zcu.ds.bankserver.zmq.Sender;
 import org.apache.commons.cli.*;
+import org.apache.logging.log4j.ThreadContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,6 +34,8 @@ public class Server {
         try {
             cmd = parser.parse(options, args);
             selfNodeNumber = Integer.parseInt(cmd.getOptionValue("node"));
+            ThreadContext.put("nodeID", selfNodeNumber + "");
+
             logger.debug("Detected node configuration index: {}", selfNodeNumber);
         } catch (Exception e) {
             formatter.printHelp("bankServer", options);
@@ -44,11 +48,19 @@ public class Server {
 
         logger.info("Starting servers");
 
-        Listener l = new Listener(selfNodeNumber,5000);
-        Sender s = new Sender(selfNodeNumber);
+        Node nodeInfo = Config.getNode(selfNodeNumber);
 
-        executor.execute(l);
+        // Listeners
+        ListenerManager lm = new ListenerManager(selfNodeNumber);
+        for (int port: nodeInfo.getPorts()) {
+            ListenerManager.Listener l = lm.createListener(port);
+            executor.execute(l);
+        }
+
+        // Sender
+        Sender s = new Sender(selfNodeNumber);
         executor.execute(s);
+
         executor.shutdown();
 
         while (!executor.isTerminated()) {

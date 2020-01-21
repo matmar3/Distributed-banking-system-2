@@ -6,6 +6,7 @@ import cz.kiv.zcu.ds.bankserver.domain.BankRequest;
 import cz.kiv.zcu.ds.bankserver.domain.MessageType;
 import cz.kiv.zcu.ds.bankserver.domain.Node;
 import cz.kiv.zcu.ds.bankserver.util.Utils;
+import org.apache.logging.log4j.ThreadContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zeromq.SocketType;
@@ -28,6 +29,8 @@ public class Sender extends Thread {
 
     @Override
     public void run() {
+        ThreadContext.put("nodeID", selfNodeNumber + "");
+
         while (!isInterrupted()) {
             try {
                 // simulate some delay
@@ -53,18 +56,26 @@ public class Sender extends Thread {
         }
     }
 
-    private static synchronized void createConnection(int senderIdx, String ip, int port) {
+    /**
+     * Creating socket for communication between selfNode and targetNode, where IP and port is for target.
+     * Target listening on port 5000 + sender's nodeID to distinguish channels.
+     *
+     * @param targetNodeIdx - Node ID of communication target
+     * @param ip - target's IP address
+     * @param port - target's port (listening on port 5000 + sender's nodeID)
+     */
+    private static synchronized void createConnection(int targetNodeIdx, String ip, int port) {
         ZContext context = new ZContext();
         ZMQ.Socket socket = context.createSocket(SocketType.PAIR);
         socket.connect("tcp://" + ip + ":" + port);
 
         logger.debug("Connecting to {} on port {}.", ip, port);
 
-        sockets.put(senderIdx, socket);
+        sockets.put(targetNodeIdx, socket);
     }
 
-    static void send(int senderIdx, int idx, int amount, String operation) {
-        Node node = Config.getNode(idx);
+    static void send(int senderIdx, int receiverIdx, int amount, String operation) {
+        Node receiver = Config.getNode(receiverIdx);
 
         BankRequest a = new BankRequest();
         a.setAmount(amount);
@@ -73,12 +84,30 @@ public class Sender extends Thread {
 
         String msg = Utils.serialize(a);
 
-        if (!sockets.containsKey(senderIdx)) {
-            createConnection(senderIdx, node.getIp(), node.getPort());
+        if (!sockets.containsKey(receiverIdx)) {
+            createConnection(receiverIdx, receiver.getIp(), 5000 + senderIdx);
         }
-        sockets.get(senderIdx).send(msg.getBytes(ZMQ.CHARSET), 0);
+        sockets.get(receiverIdx).send(msg.getBytes(ZMQ.CHARSET), 0);
 
-        logger.info("Sending bank request to {} on port {}.", node.getIp(), node.getPort());
+        logger.debug("Sending bank request to {} on port {}.", receiver.getIp(), 5000 + senderIdx);
+    }
+
+    static void sendMarkers(int senderIdx, int[] receiversIndexes) {
+        for (int receiverIdx: receiversIndexes) {
+            Node node = Config.getNode(receiverIdx);
+
+            BankRequest a = new BankRequest();
+            a.setOperation(MessageType.MARKER.toString());
+            a.setSender(senderIdx);
+            String msg = Utils.serialize(a);
+
+            if (!sockets.containsKey(receiverIdx)) {
+                createConnection(receiverIdx, node.getIp(), 5000 + senderIdx);
+            }
+            sockets.get(receiverIdx).send(msg.getBytes(ZMQ.CHARSET), 0);
+
+            logger.debug("Sending marker to {} on port {}.", node.getIp(), 5000 + senderIdx);
+        }
     }
 
     public void closeConnections() {

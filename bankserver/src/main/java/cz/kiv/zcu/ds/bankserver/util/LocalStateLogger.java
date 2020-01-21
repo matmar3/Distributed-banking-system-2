@@ -12,7 +12,7 @@ public class LocalStateLogger {
 
     private int nodeState;
 
-    private Map<String, List<Integer>> channelsState;
+    private Map<Integer, List<Integer>> channelsState;
 
     private BitSet logging;
 
@@ -24,16 +24,14 @@ public class LocalStateLogger {
     }
 
     public void saveMessage(BankRequest bankRequest) {
-        String channelID = "" + bankRequest.getSender() + nodeIdx;
-
-        if (channelsState.containsKey(channelID)) {
-            storeAmount(channelsState.get(channelID), bankRequest);
+        if (channelsState.containsKey(bankRequest.getSender())) {
+            storeAmount(channelsState.get(bankRequest.getSender()), bankRequest);
         }
         else {
             List<Integer> list = new ArrayList<>();
             storeAmount(list, bankRequest);
 
-            channelsState.put(channelID, list);
+            channelsState.put(bankRequest.getSender(), list);
         }
     }
 
@@ -68,16 +66,17 @@ public class LocalStateLogger {
     public String toString() {
         StringBuilder sb = new StringBuilder();
 
-        sb.append("---------------------------------------------------------------");
+        sb.append("\n---------------------------------------------------------------\n");
         sb.append("STATE OF NODE No.").append(nodeIdx).append("\n");
         sb.append("Amount: ").append(nodeState).append("\n");
 
-        for (Map.Entry<String, List<Integer>> entry: channelsState.entrySet()) {
-            sb.append("Channel: ").append(entry.getKey()).append("\n");
+        for (Map.Entry<Integer, List<Integer>> entry: channelsState.entrySet()) {
+            sb.append("Channel: ").append(entry.getKey()).append(" => ").append(nodeIdx).append("\n");
             for (Integer amount: entry.getValue()) {
                 sb.append(amount).append(",- CZK").append("\n");
             }
         }
+        sb.append("---------------------------------------------------------------\n");
 
         return sb.toString();
     }

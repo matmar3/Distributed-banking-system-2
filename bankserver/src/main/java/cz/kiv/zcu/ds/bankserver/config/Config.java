@@ -12,7 +12,7 @@ import java.io.IOException;
 
 public class Config {
 
-    public static final int THREADS_C = 2;
+    public static final int THREADS_C = 4;
 
     public static final int MIN_SLEEP_TIME = 2;
     public static final int SLEEP_TIME_INTERVAL_LENGTH = 5;

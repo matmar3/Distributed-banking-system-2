@@ -1,16 +1,16 @@
 nodes:
   - ip: 10.0.1.12
-    port: 5000
+    ports: [5001, 5002]
     neighbours: [1, 2]
   - ip: 10.0.1.13
-    port: 5000
+    ports: [5000, 5003]
     neighbours: [0, 3]
   - ip: 10.0.1.14
-    port: 5000
+    ports: [5000, 50003]
     neighbours: [0, 3]
   - ip: 10.0.1.15
-    port: 5000
+    ports: [5001, 5002, 5004]
     neighbours: [1, 2, 4]
   - ip: 10.0.1.16
-    port: 5000
+    ports: [5003]
     neighbours: [3]
