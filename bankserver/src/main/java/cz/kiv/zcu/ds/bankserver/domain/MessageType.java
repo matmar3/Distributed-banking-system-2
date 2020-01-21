@@ -4,7 +4,8 @@ public enum MessageType {
 
     CREDIT,
     DEBIT,
-    MARKER;
+    MARKER,
+    GLOBAL_STATE;
 
     public static MessageType resolve(String messageType) {
         for (MessageType m: values()) {

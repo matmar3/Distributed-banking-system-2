@@ -2,7 +2,7 @@ package cz.kiv.zcu.ds.bankserver.zmq;
 
 import cz.kiv.zcu.ds.bankserver.Account;
 import cz.kiv.zcu.ds.bankserver.config.Config;
-import cz.kiv.zcu.ds.bankserver.domain.BankRequest;
+import cz.kiv.zcu.ds.bankserver.domain.Message;
 import cz.kiv.zcu.ds.bankserver.domain.MessageType;
 import cz.kiv.zcu.ds.bankserver.util.LocalStateLogger;
 import cz.kiv.zcu.ds.bankserver.util.Utils;
@@ -21,7 +21,7 @@ public class ListenerManager {
 
     private LocalStateLogger lsl;
 
-    private boolean printed = false;
+    private boolean printed;
 
     public ListenerManager(int nodeNumber) {
         this.selfNodeNumber = nodeNumber;
@@ -35,6 +35,7 @@ public class ListenerManager {
     private synchronized boolean startStateLogger(int[] neighbours) {
         if (lsl != null) return false;
 
+        printed = false;
         lsl = new LocalStateLogger(selfNodeNumber, Account.getInstance());
         lsl.startLogging(neighbours);
         logger.debug("Starting logging global state ...");
@@ -45,6 +46,11 @@ public class ListenerManager {
     private synchronized void stopLoggingChannelByNodeID(int nodeID) {
         lsl.stopLogging(nodeID);
         logger.debug("Stopping logging messages from node {}.", nodeID);
+    }
+
+    private synchronized void resetGlobalState() {
+        printed = true;
+        lsl = null;
     }
 
     public class Listener extends Thread {
@@ -72,11 +78,11 @@ public class ListenerManager {
             socket.close();
         }
 
-        private void handleReceivedMessage(BankRequest bankRequest) {
+        private void handleReceivedMessage(Message message) {
             logger.debug("Processing message - type: {}, from: {}",
-                    bankRequest.getOperation(), bankRequest.getSender());
+                    message.getType(), message.getFrom());
 
-            MessageType type = MessageType.resolve(bankRequest.getOperation());
+            MessageType type = MessageType.resolve(message.getType());
             if (type == null) {
                 logger.error("Bank request operation missing.");
                 return;
@@ -91,62 +97,69 @@ public class ListenerManager {
                         return;
                     }
                     try {
-                        sleep(2000);
+                        sleep(10000);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
+                    }
+                    // Stop logging messages from sender
+                    if (message.getFrom() >= 0) {
+                        stopLoggingChannelByNodeID(message.getFrom());
                     }
                     // Send markers to all neighbours
                     Sender.sendMarkers(selfNodeNumber, neighbours);
                 }
                 else {
                     // Stop logging messages from sender
-                    stopLoggingChannelByNodeID(bankRequest.getSender());
+                    stopLoggingChannelByNodeID(message.getFrom());
+                }
 
-                    if (lsl.isLoggingDone() && !printed) {
-                        // TODO posli svuj stav do spolecne fronty pro vysledky
-                        logger.info(lsl.toString());
-                        logger.info("FINAL STATE for NODE-{} is {}.", selfNodeNumber, Account.getInstance().getBalance());
-                        printed = true;
-                    }
+                if (lsl.isLoggingDone() && !printed) {
+                    logger.debug("Final state for Node-{}, balance: {}.", selfNodeNumber, Account.getInstance().getBalance());
+                    Sender.sendGlobalState(lsl.toString());
+                    // reset global state
+                    resetGlobalState();
                 }
             }
+            else if (type == MessageType.GLOBAL_STATE) {
+                logger.info(message.getStrData());
+            }
             else {
-                if (bankRequest.getAmount() < Config.MIN_AMOUNT || bankRequest.getAmount() > Config.MAX_AMOUNT) {
+                if (message.getNumData() < Config.MIN_AMOUNT || message.getNumData() > Config.MAX_AMOUNT) {
                     logger.error("Invalid bank request amount.");
                     return;
                 }
 
                 switch (type) {
                     case CREDIT:
-                        performCredit(bankRequest);
+                        performCredit(message);
                         break;
                     case DEBIT:
-                        performDebit(bankRequest);
+                        performDebit(message);
                         break;
                 }
 
-                logger.debug("Bank request, operation: {}, amount: {}.", bankRequest.getOperation(), bankRequest.getAmount());
+                logger.debug("Bank request, operation: {}, amount: {}.", message.getType(), message.getNumData());
                 logger.debug("Account balance: {}", Account.getInstance().getBalance());
             }
         }
 
-        private void performDebit(BankRequest bankRequest) {
-            if (!Account.getInstance().debit(bankRequest.getAmount())) {
+        private void performDebit(Message message) {
+            if (!Account.getInstance().debit(message.getNumData())) {
                 return;
             }
-            Sender.send(selfNodeNumber, bankRequest.getSender(), bankRequest.getAmount(), MessageType.CREDIT.toString());
+            Sender.send(selfNodeNumber, message.getFrom(), message.getNumData(), MessageType.CREDIT.toString());
 
             // Not logging failed debit requests
-            if (lsl != null && lsl.isLogging(bankRequest.getSender())) {
-                lsl.saveMessage(bankRequest);
+            if (lsl != null && lsl.isLogging(message.getFrom())) {
+                lsl.saveMessage(message);
             }
         }
 
-        private void performCredit(BankRequest bankRequest) {
-            Account.getInstance().credit(bankRequest.getAmount());
+        private void performCredit(Message bankRequest) {
+            Account.getInstance().credit(bankRequest.getNumData());
             // nothing to do, sender already made debit
 
-            if (lsl != null && lsl.isLogging(bankRequest.getSender())) {
+            if (lsl != null && lsl.isLogging(bankRequest.getFrom())) {
                 lsl.saveMessage(bankRequest);
             }
         }

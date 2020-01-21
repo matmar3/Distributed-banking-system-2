@@ -2,7 +2,7 @@ package cz.kiv.zcu.ds.bankserver.zmq;
 
 import cz.kiv.zcu.ds.bankserver.Account;
 import cz.kiv.zcu.ds.bankserver.config.Config;
-import cz.kiv.zcu.ds.bankserver.domain.BankRequest;
+import cz.kiv.zcu.ds.bankserver.domain.Message;
 import cz.kiv.zcu.ds.bankserver.domain.MessageType;
 import cz.kiv.zcu.ds.bankserver.domain.Node;
 import cz.kiv.zcu.ds.bankserver.util.Utils;
@@ -77,10 +77,10 @@ public class Sender extends Thread {
     static void send(int senderIdx, int receiverIdx, int amount, String operation) {
         Node receiver = Config.getNode(receiverIdx);
 
-        BankRequest a = new BankRequest();
-        a.setAmount(amount);
-        a.setOperation(operation);
-        a.setSender(senderIdx);
+        Message a = new Message();
+        a.setNumData(amount);
+        a.setType(operation);
+        a.setFrom(senderIdx);
 
         String msg = Utils.serialize(a);
 
@@ -96,9 +96,9 @@ public class Sender extends Thread {
         for (int receiverIdx: receiversIndexes) {
             Node node = Config.getNode(receiverIdx);
 
-            BankRequest a = new BankRequest();
-            a.setOperation(MessageType.MARKER.toString());
-            a.setSender(senderIdx);
+            Message a = new Message();
+            a.setType(MessageType.MARKER.toString());
+            a.setFrom(senderIdx);
             String msg = Utils.serialize(a);
 
             if (!sockets.containsKey(receiverIdx)) {
@@ -108,6 +108,24 @@ public class Sender extends Thread {
 
             logger.debug("Sending marker to {} on port {}.", node.getIp(), 5000 + senderIdx);
         }
+    }
+
+    static void sendGlobalState(String rawString) {
+        final int ID = 555;
+        Node node = Config.getNode(0);
+
+        Message rawMessage = new Message();
+        rawMessage.setFrom(ID); // results in port 5555
+        rawMessage.setType(MessageType.GLOBAL_STATE.toString());
+        rawMessage.setStrData(rawString);
+        String msg = Utils.serialize(rawMessage);
+
+        createConnection(ID, node.getIp(), 5000 + ID);
+        sockets.get(ID).send(msg.getBytes(ZMQ.CHARSET), 0);
+        sockets.get(ID).close();
+        sockets.remove(ID);
+
+        logger.debug("Sending global state to {} on port {}.", node.getIp(), 5000 + ID);
     }
 
     public void closeConnections() {

@@ -71,30 +71,6 @@ public class Server {
         s.closeConnections();
 
         logger.info("Stopping servers");
-
-        /*try (ZContext context = new ZContext()) {
-            System.out.println("Connecting to hello world server");
-
-            //  Socket to talk to server
-            ZMQ.Socket socket = context.createSocket(SocketType.PAIR);
-            socket.connect("tcp://10.0.1.12:5000");
-
-            for (int requestNbr = 0; requestNbr != 10; requestNbr++) {
-                BankRequest a = new BankRequest();
-                a.setAmount(15000);
-                a.setOperation("CREDIT");
-                a.setSender(2);
-                String msg = Utils.serialize(a);
-                socket.send(msg.getBytes(ZMQ.CHARSET), 0);
-
-                byte[] reply = socket.recv(0);
-                System.out.println(
-                        "Received " + new String(reply, ZMQ.CHARSET) + " " +
-                                requestNbr
-                );
-            }
-        }*/
-
     }
 
 }

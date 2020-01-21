@@ -1,7 +1,7 @@
 package cz.kiv.zcu.ds.bankserver.util;
 
 import cz.kiv.zcu.ds.bankserver.Account;
-import cz.kiv.zcu.ds.bankserver.domain.BankRequest;
+import cz.kiv.zcu.ds.bankserver.domain.Message;
 import cz.kiv.zcu.ds.bankserver.domain.MessageType;
 
 import java.util.*;
@@ -23,24 +23,24 @@ public class LocalStateLogger {
         this.logging = new BitSet();
     }
 
-    public void saveMessage(BankRequest bankRequest) {
-        if (channelsState.containsKey(bankRequest.getSender())) {
-            storeAmount(channelsState.get(bankRequest.getSender()), bankRequest);
+    public void saveMessage(Message message) {
+        if (channelsState.containsKey(message.getFrom())) {
+            storeAmount(channelsState.get(message.getFrom()), message);
         }
         else {
             List<Integer> list = new ArrayList<>();
-            storeAmount(list, bankRequest);
+            storeAmount(list, message);
 
-            channelsState.put(bankRequest.getSender(), list);
+            channelsState.put(message.getFrom(), list);
         }
     }
 
-    private void storeAmount(List<Integer> channel, BankRequest bankRequest) {
-        if (MessageType.CREDIT.toString().equals(bankRequest.getOperation())) {
-            channel.add(bankRequest.getAmount());
+    private void storeAmount(List<Integer> channel, Message message) {
+        if (MessageType.CREDIT.toString().equals(message.getType())) {
+            channel.add(message.getNumData());
         }
-        else if (MessageType.DEBIT.toString().equals(bankRequest.getOperation())) {
-            channel.add(-1 * bankRequest.getAmount());
+        else if (MessageType.DEBIT.toString().equals(message.getType())) {
+            channel.add(-1 * message.getNumData());
         }
     }
 

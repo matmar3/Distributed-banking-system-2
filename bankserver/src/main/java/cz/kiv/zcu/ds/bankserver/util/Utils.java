@@ -2,8 +2,8 @@ package cz.kiv.zcu.ds.bankserver.util;
 
 import com.google.gson.Gson;
 import cz.kiv.zcu.ds.bankserver.config.Config;
+import cz.kiv.zcu.ds.bankserver.domain.Message;
 import cz.kiv.zcu.ds.bankserver.domain.MessageType;
-import cz.kiv.zcu.ds.bankserver.domain.BankRequest;
 
 import java.util.Random;
 
@@ -13,12 +13,12 @@ public class Utils {
 
     private static Gson gson = new Gson();
 
-    public static BankRequest deserialize(String msg) {
-        return gson.fromJson(msg, BankRequest.class);
+    public static Message deserialize(String msg) {
+        return gson.fromJson(msg, Message.class);
     }
 
-    public static String serialize(BankRequest bankRequest) {
-        return gson.toJson(bankRequest);
+    public static String serialize(Message message) {
+        return gson.toJson(message);
     }
 
     public static int getUDRSleepTime() {
