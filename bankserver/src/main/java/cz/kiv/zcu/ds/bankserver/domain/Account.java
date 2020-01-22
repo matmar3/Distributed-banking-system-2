@@ -1,4 +1,4 @@
-package cz.kiv.zcu.ds.bankserver;
+package cz.kiv.zcu.ds.bankserver.domain;
 
 public class Account {
 

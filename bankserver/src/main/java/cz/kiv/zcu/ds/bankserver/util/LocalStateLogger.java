@@ -1,6 +1,6 @@
 package cz.kiv.zcu.ds.bankserver.util;
 
-import cz.kiv.zcu.ds.bankserver.Account;
+import cz.kiv.zcu.ds.bankserver.domain.Account;
 import cz.kiv.zcu.ds.bankserver.domain.Message;
 import cz.kiv.zcu.ds.bankserver.domain.MessageType;
 
