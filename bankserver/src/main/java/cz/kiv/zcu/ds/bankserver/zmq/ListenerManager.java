@@ -15,18 +15,39 @@ import org.zeromq.ZMQ;
 
 import java.util.HashMap;
 
+/**
+ * Provides methods to handling Chandy-Lamport algorithm flow. Creates listeners of type {@link Listener} for specified
+ * port.
+ */
 public class ListenerManager {
 
-    private static Logger logger = LoggerFactory.getLogger(Listener.class);
+    private static Logger logger = LoggerFactory.getLogger(ListenerManager.class);
 
+    /**
+     * Hosting node ID
+     */
     private int selfNodeNumber;
 
+    /**
+     * Map of state loggers for running algorithm
+     */
     private HashMap<Integer, LocalStateLogger> lslMap;
 
+    /**
+     * Store free ID for new global state snapshot algorithm
+     */
     private int lslCounter;
 
+    /**
+     * Map of flags that defines if algorithm ends and prints report or not. Flags are separated for each
+     * running algorithm.
+     */
     private HashMap<Integer, Boolean> printed;
 
+    /**
+     * Initializes manager.
+     * @param nodeNumber - hosting node ID
+     */
     public ListenerManager(int nodeNumber) {
         this.selfNodeNumber = nodeNumber;
         this.lslMap = new HashMap<>();
@@ -34,10 +55,20 @@ public class ListenerManager {
         this.lslCounter = 0;
     }
 
+    /**
+     * Creates listener.
+     * @param port - listening port
+     * @return - instance of listener worker
+     */
     public Listener createListener(int port) {
         return new Listener(port);
     }
 
+    /**
+     * Initialize CL algorithm and defines his ID. Thread safe.
+     * @param neighbours - array of channels that must be logged
+     * @return - global state ID or error (-1)
+     */
     private synchronized int startAlgorithm(int[] neighbours) {
         logger.debug("Starting Chandy-Lamport algorithm with ID {}.", lslCounter);
 
@@ -50,6 +81,12 @@ public class ListenerManager {
         return lslCounter - 1;
     }
 
+    /**
+     * Spreads MARKER message to neighbours and starts logging in specified channels. Thread safe.
+     * @param lslID - global state ID
+     * @param neighbours - array of channels that must be logged
+     * @return - global state ID
+     */
     private synchronized int startStateLogger(int lslID, int[] neighbours) {
         if (lslMap.containsKey(lslID)) return -1;
 
@@ -63,17 +100,30 @@ public class ListenerManager {
         return lslID;
     }
 
+    /**
+     * Stop logging for specified copy of running algorithm for specified node. Thread safe.
+     * @param lslID - global state ID
+     * @param nodeID - node ID
+     */
     private synchronized void stopLoggingChannelByNodeID(int lslID, int nodeID) {
         lslMap.get(lslID).stopLogging(nodeID);
         logger.debug("Stopping logging messages from node {} for ID {}.", nodeID, lslID);
     }
 
+    /**
+     * Removes global state logger and flag for given global state ID.
+     * @param lslID - global state ID
+     */
     private synchronized void deleteLocalState(int lslID) {
         logger.debug("Deleting deleteLocal state for ID {}.", lslID);
         printed.remove(lslID);
         lslMap.remove(lslID);
     }
 
+    /**
+     * Thread safe method that ends algorithm and send report to specified queue.
+     * @param lslID - global state ID
+     */
     private synchronized void finishAlgorithm(int lslID) {
         LocalStateLogger lsl = lslMap.get(lslID);
         if (lsl.isLoggingDone() && !printed.get(lslID)) {
@@ -84,14 +134,27 @@ public class ListenerManager {
         }
     }
 
+    /**
+     * Provide methods for handling received messages.
+     */
     public class Listener extends Thread {
 
+        /**
+         * Listening port
+         */
         private int port;
 
+        /**
+         * Creates listener
+         * @param port - listening port
+         */
         private Listener(int port) {
             this.port = port;
         }
 
+        /**
+         * Listening on defined port and handling received messages.
+         */
         @Override
         public void run() {
             ThreadContext.put("nodeID", selfNodeNumber + "");
@@ -109,20 +172,26 @@ public class ListenerManager {
             socket.close();
         }
 
+        /**
+         * Handles received messages.
+         * @param message - received custom ZeroMQ message
+         */
         private void handleReceivedMessage(Message message) {
             logger.debug("Processing message - type: {}, from: {}",
                     message.getType(), message.getFrom());
 
+            // resolve message type
             MessageType type = MessageType.resolve(message.getType());
             if (type == null) {
                 logger.error("Bank request operation missing.");
                 return;
             }
 
-            int receivedGlobalStateID = message.getNumData();
+            if (type == MessageType.MARKER) { // handle CL algorithm flow
+                // get global state ID from message
+                int receivedGlobalStateID = message.getNumData();
 
-            if (type == MessageType.MARKER) {
-                if (message.getFrom() < 0) {
+                if (message.getFrom() < 0) { // starts algorithm
                     // Get array of connected nodes
                     int[] neighbours = Config.getNode(selfNodeNumber).getNeighbours();
                     // Start logging messages from all incoming connections
@@ -133,7 +202,7 @@ public class ListenerManager {
                     // Send markers to all neighbours
                     Sender.sendMarkers(lslID, selfNodeNumber, neighbours);
                 }
-                else if (!lslMap.containsKey(receivedGlobalStateID)) {
+                else if (!lslMap.containsKey(receivedGlobalStateID)) { // first MARKER message
                     // Get array of connected nodes
                     int[] neighbours = Config.getNode(selfNodeNumber).getNeighbours();
                     // Start logging messages from all incoming connections
@@ -146,17 +215,17 @@ public class ListenerManager {
                     // Send markers to all neighbours
                     Sender.sendMarkers(receivedGlobalStateID, selfNodeNumber, neighbours);
                 }
-                else {
+                else { // second MARKER message
                     // Stop logging messages from sender
                     stopLoggingChannelByNodeID(receivedGlobalStateID, message.getFrom());
                 }
 
                 finishAlgorithm(receivedGlobalStateID);
             }
-            else if (type == MessageType.GLOBAL_STATE) {
+            else if (type == MessageType.GLOBAL_STATE) { // handle global state report printing
                 logger.info(message.getStrData());
             }
-            else {
+            else { // handle bank request
                 if (message.getNumData() < Config.MIN_AMOUNT || message.getNumData() > Config.MAX_AMOUNT) {
                     logger.error("Invalid bank request amount.");
                     return;
@@ -176,9 +245,13 @@ public class ListenerManager {
             }
         }
 
+        /**
+         * Performs debit operation based on received message details.
+         * @param message - bank request
+         */
         private void performDebit(Message message) {
             if (!Account.getInstance().debit(message.getNumData())) {
-                return;
+                return; // cannot perform debit, low balance
             }
             Sender.send(selfNodeNumber, message.getFrom(), message.getNumData(), MessageType.CREDIT.toString());
 
@@ -190,6 +263,10 @@ public class ListenerManager {
             }
         }
 
+        /**
+         * Performs credit operation based on received message details.
+         * @param message - bank request
+         */
         private void performCredit(Message message) {
             Account.getInstance().credit(message.getNumData());
             // nothing to do, sender already made debit

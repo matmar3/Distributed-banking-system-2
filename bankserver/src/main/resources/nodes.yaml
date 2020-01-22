@@ -1,4 +1,4 @@
-nodes:
+nodes: # list of nodes in topology
   - ip: 10.0.1.12
     ports: [5001, 5002, 5555, 5550, 5551, 5552] # 5555 for Init Algo, 555x for results
     neighbours: [1, 2]

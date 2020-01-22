@@ -1,5 +1,8 @@
 package cz.kiv.zcu.ds.bankserver.domain;
 
+/**
+ * Singleton bank account. Provides thread safe methods for changing account's balance.
+ */
 public class Account {
 
     private volatile int balance;

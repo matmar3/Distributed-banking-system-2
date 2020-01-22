@@ -2,6 +2,9 @@ package cz.kiv.zcu.ds.bankserver.domain;
 
 import java.util.List;
 
+/**
+ * Wrapper for list of nodes.
+ */
 public class Nodes {
 
     private List<Node> nodes;

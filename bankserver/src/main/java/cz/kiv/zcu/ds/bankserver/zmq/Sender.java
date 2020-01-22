@@ -15,18 +15,35 @@ import org.zeromq.ZMQ;
 
 import java.util.HashMap;
 
+/**
+ * Provides methods for responding on received messages and generates random bank operations that sends
+ * to random nodes each X seconds.
+ */
 public class Sender extends Thread {
 
     private static Logger logger = LoggerFactory.getLogger(Sender.class);
 
+    /**
+     * Hosting node ID
+     */
     private int selfNodeNumber;
 
+    /**
+     * Opened sockets, where number specifies target node ID.
+     */
     private static volatile HashMap<Integer, ZMQ.Socket> sockets = new HashMap<>();
 
+    /**
+     * Defines sender for specified hosting node.
+     * @param nodeNumber - hosting node ID
+     */
     public Sender(int nodeNumber) {
        this.selfNodeNumber = nodeNumber;
     }
 
+    /**
+     * Generates random bank operations and sends them to random nodes each X seconds.
+     */
     @Override
     public void run() {
         ThreadContext.put("nodeID", selfNodeNumber + "");
@@ -74,6 +91,13 @@ public class Sender extends Thread {
         sockets.put(targetNodeIdx, socket);
     }
 
+    /**
+     * Sends bank request based on given parameters.
+     * @param senderIdx - hosting node ID
+     * @param receiverIdx - target node ID
+     * @param amount - amount of money
+     * @param operation - bank operation CREDIT or DEBIT
+     */
     static void send(int senderIdx, int receiverIdx, int amount, String operation) {
         Node receiver = Config.getNode(receiverIdx);
 
@@ -92,6 +116,12 @@ public class Sender extends Thread {
         logger.debug("Sending bank request to {} on port {}.", receiver.getIp(), 5000 + senderIdx);
     }
 
+    /**
+     * Sends marker based on given parameters.
+     * @param globalStateID - global state identifier
+     * @param senderIdx - hosting node ID
+     * @param receiversIndexes - target node ID
+     */
     static void sendMarkers(int globalStateID, int senderIdx, int[] receiversIndexes) {
         for (int receiverIdx: receiversIndexes) {
             Node node = Config.getNode(receiverIdx);
@@ -111,6 +141,11 @@ public class Sender extends Thread {
         }
     }
 
+    /**
+     * Sends Cl algorithm report based on given parameters.
+     * @param selfNodeNumber - hosting node ID
+     * @param rawString - CL algorithm report
+     */
     static void sendLocalState(int selfNodeNumber, String rawString) {
         final int ID = 550 + selfNodeNumber;
         Node node = Config.getNode(0);
@@ -129,6 +164,9 @@ public class Sender extends Thread {
         logger.debug("Sending global state to {} on port {}.", node.getIp(), 5000 + ID);
     }
 
+    /**
+     * Close all opened sockets.
+     */
     public void closeConnections() {
         for (ZMQ.Socket socket : sockets.values()) {
             socket.close();

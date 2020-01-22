@@ -1,5 +1,8 @@
 package cz.kiv.zcu.ds.bankserver.domain;
 
+/**
+ * Custom ZeroMQ message structure.
+ */
 public class Message {
 
     private String strData;

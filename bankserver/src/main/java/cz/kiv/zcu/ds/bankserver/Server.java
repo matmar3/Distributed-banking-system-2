@@ -3,6 +3,7 @@ package cz.kiv.zcu.ds.bankserver;
 import cz.kiv.zcu.ds.bankserver.config.Config;
 import cz.kiv.zcu.ds.bankserver.domain.Node;
 import cz.kiv.zcu.ds.bankserver.zmq.ListenerManager;
+import cz.kiv.zcu.ds.bankserver.zmq.ListenerManager.Listener;
 import cz.kiv.zcu.ds.bankserver.zmq.Sender;
 import org.apache.commons.cli.*;
 import org.apache.logging.log4j.ThreadContext;
@@ -12,6 +13,9 @@ import org.slf4j.LoggerFactory;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * Bank server that manages dynamic pool of threads for {@link Listener} and {@link Sender} instances.
+ */
 public class Server {
 
     private static Logger logger = LoggerFactory.getLogger(Server.class);

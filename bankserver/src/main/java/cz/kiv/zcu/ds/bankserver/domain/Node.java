@@ -1,5 +1,8 @@
 package cz.kiv.zcu.ds.bankserver.domain;
 
+/**
+ * Node configuration.
+ */
 public class Node {
 
     private String ip;
