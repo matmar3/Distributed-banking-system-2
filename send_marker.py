@@ -10,4 +10,4 @@ socket.connect("tcp://10.0.1.12:5555")
 msg = b'{"strData":"","numData":0,"type":"MARKER","from":-1}'
 print("Sending marker.")
 socket.send(msg)
-
+socket.close()

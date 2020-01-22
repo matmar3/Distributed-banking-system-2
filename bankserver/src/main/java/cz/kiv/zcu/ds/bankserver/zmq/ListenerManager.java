@@ -13,44 +13,75 @@ import org.zeromq.SocketType;
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 
+import java.util.HashMap;
+
 public class ListenerManager {
 
     private static Logger logger = LoggerFactory.getLogger(Listener.class);
 
     private int selfNodeNumber;
 
-    private LocalStateLogger lsl;
+    private HashMap<Integer, LocalStateLogger> lslMap;
 
-    private boolean printed;
+    private int lslCounter;
+
+    private HashMap<Integer, Boolean> printed;
 
     public ListenerManager(int nodeNumber) {
         this.selfNodeNumber = nodeNumber;
-        this.lsl = null;
+        this.lslMap = new HashMap<>();
+        this.printed = new HashMap<>();
+        this.lslCounter = 0;
     }
 
     public Listener createListener(int port) {
         return new Listener(port);
     }
 
-    private synchronized boolean startStateLogger(int[] neighbours) {
-        if (lsl != null) return false;
+    private synchronized int startAlgorithm(int[] neighbours) {
+        logger.debug("Starting Chandy-Lamport algorithm with ID {}.", lslCounter);
 
-        printed = false;
-        lsl = new LocalStateLogger(selfNodeNumber, Account.getInstance());
+        int result = startStateLogger(lslCounter, neighbours);
+        if (result == -1) {
+            return result;
+        }
+
+        lslCounter++;
+        return lslCounter - 1;
+    }
+
+    private synchronized int startStateLogger(int lslID, int[] neighbours) {
+        if (lslMap.containsKey(lslID)) return -1;
+
+        printed.put(lslID, false);
+        LocalStateLogger lsl = new LocalStateLogger(selfNodeNumber, Account.getInstance());
         lsl.startLogging(neighbours);
-        logger.debug("Starting logging global state ...");
+        lslMap.put(lslID, lsl);
 
-        return true;
+        logger.debug("Starting logging node state for ID {} ...", lslID);
+
+        return lslID;
     }
 
-    private synchronized void stopLoggingChannelByNodeID(int nodeID) {
-        lsl.stopLogging(nodeID);
-        logger.debug("Stopping logging messages from node {}.", nodeID);
+    private synchronized void stopLoggingChannelByNodeID(int lslID, int nodeID) {
+        lslMap.get(lslID).stopLogging(nodeID);
+        logger.debug("Stopping logging messages from node {} for ID {}.", nodeID, lslID);
     }
 
-    private synchronized void resetGlobalState() {
-        printed = true;
-        lsl = null;
+    private synchronized void deleteLocalState(int lslID) {
+        logger.debug("Deleting deleteLocal state for ID {}.", lslID);
+        printed.remove(lslID);
+        lslMap.remove(lslID);
+    }
+
+    private synchronized void finishAlgorithm(int lslID) {
+        LocalStateLogger lsl = lslMap.get(lslID);
+        if (lsl.isLoggingDone() && !printed.get(lslID)) {
+            logger.debug("Final state for Node-{} with Global state ID {}, balance: {}.", selfNodeNumber, lslID, Account.getInstance().getBalance());
+            Sender.sendLocalState(selfNodeNumber, lsl.toString());
+            // reset local state
+            deleteLocalState(lslID);
+        }
     }
 
     public class Listener extends Thread {
@@ -88,32 +119,39 @@ public class ListenerManager {
                 return;
             }
 
+            int receivedGlobalStateID = message.getNumData();
+
             if (type == MessageType.MARKER) {
-                if (lsl == null) {
+                if (message.getFrom() < 0) {
                     // Get array of connected nodes
                     int[] neighbours = Config.getNode(selfNodeNumber).getNeighbours();
                     // Start logging messages from all incoming connections
-                    if (!startStateLogger(neighbours)) {
+                    int lslID = startAlgorithm(neighbours);
+                    if (lslID == -1) {
+                        return;
+                    }
+                    // Send markers to all neighbours
+                    Sender.sendMarkers(lslID, selfNodeNumber, neighbours);
+                }
+                else if (!lslMap.containsKey(receivedGlobalStateID)) {
+                    // Get array of connected nodes
+                    int[] neighbours = Config.getNode(selfNodeNumber).getNeighbours();
+                    // Start logging messages from all incoming connections
+                    int result = startStateLogger(receivedGlobalStateID, neighbours);
+                    if (result == -1) {
                         return;
                     }
                     // Stop logging messages from sender
-                    if (message.getFrom() >= 0) {
-                        stopLoggingChannelByNodeID(message.getFrom());
-                    }
+                    stopLoggingChannelByNodeID(receivedGlobalStateID, message.getFrom());
                     // Send markers to all neighbours
-                    Sender.sendMarkers(selfNodeNumber, neighbours);
+                    Sender.sendMarkers(receivedGlobalStateID, selfNodeNumber, neighbours);
                 }
                 else {
                     // Stop logging messages from sender
-                    stopLoggingChannelByNodeID(message.getFrom());
+                    stopLoggingChannelByNodeID(receivedGlobalStateID, message.getFrom());
                 }
 
-                if (lsl.isLoggingDone() && !printed) {
-                    logger.debug("Final state for Node-{}, balance: {}.", selfNodeNumber, Account.getInstance().getBalance());
-                    Sender.sendGlobalState(lsl.toString());
-                    // reset global state
-                    resetGlobalState();
-                }
+                finishAlgorithm(receivedGlobalStateID);
             }
             else if (type == MessageType.GLOBAL_STATE) {
                 logger.info(message.getStrData());
@@ -145,17 +183,21 @@ public class ListenerManager {
             Sender.send(selfNodeNumber, message.getFrom(), message.getNumData(), MessageType.CREDIT.toString());
 
             // Not logging failed debit requests
-            if (lsl != null && lsl.isLogging(message.getFrom())) {
-                lsl.saveMessage(message);
+            for (LocalStateLogger lsl: lslMap.values()) {
+                if (lsl.isLogging(message.getFrom())) {
+                    lsl.saveMessage(message);
+                }
             }
         }
 
-        private void performCredit(Message bankRequest) {
-            Account.getInstance().credit(bankRequest.getNumData());
+        private void performCredit(Message message) {
+            Account.getInstance().credit(message.getNumData());
             // nothing to do, sender already made debit
 
-            if (lsl != null && lsl.isLogging(bankRequest.getFrom())) {
-                lsl.saveMessage(bankRequest);
+            for (LocalStateLogger lsl: lslMap.values()) {
+                if (lsl.isLogging(message.getFrom())) {
+                    lsl.saveMessage(message);
+                }
             }
         }
 

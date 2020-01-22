@@ -92,13 +92,14 @@ public class Sender extends Thread {
         logger.debug("Sending bank request to {} on port {}.", receiver.getIp(), 5000 + senderIdx);
     }
 
-    static void sendMarkers(int senderIdx, int[] receiversIndexes) {
+    static void sendMarkers(int globalStateID, int senderIdx, int[] receiversIndexes) {
         for (int receiverIdx: receiversIndexes) {
             Node node = Config.getNode(receiverIdx);
 
             Message a = new Message();
             a.setType(MessageType.MARKER.toString());
             a.setFrom(senderIdx);
+            a.setNumData(globalStateID);
             String msg = Utils.serialize(a);
 
             if (!sockets.containsKey(receiverIdx)) {
@@ -110,20 +111,20 @@ public class Sender extends Thread {
         }
     }
 
-    static void sendGlobalState(String rawString) {
-        final int ID = 555;
+    static void sendLocalState(int selfNodeNumber, String rawString) {
+        final int ID = 550 + selfNodeNumber;
         Node node = Config.getNode(0);
 
         Message rawMessage = new Message();
-        rawMessage.setFrom(ID); // results in port 5555
+        rawMessage.setFrom(ID); // results in port 5550 + NodeID
         rawMessage.setType(MessageType.GLOBAL_STATE.toString());
         rawMessage.setStrData(rawString);
         String msg = Utils.serialize(rawMessage);
 
-        createConnection(ID, node.getIp(), 5000 + ID);
+        if (!sockets.containsKey(ID)) {
+            createConnection(ID, node.getIp(), 5000 + ID);
+        }
         sockets.get(ID).send(msg.getBytes(ZMQ.CHARSET), 0);
-        sockets.get(ID).close();
-        sockets.remove(ID);
 
         logger.debug("Sending global state to {} on port {}.", node.getIp(), 5000 + ID);
     }

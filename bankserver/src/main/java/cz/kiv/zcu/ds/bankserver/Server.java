@@ -44,11 +44,10 @@ public class Server {
 
         // Runs listener and sender instances
 
-        ExecutorService executor = Executors.newFixedThreadPool(Config.THREADS_C);
+        Node nodeInfo = Config.getNode(selfNodeNumber);
+        ExecutorService executor = Executors.newCachedThreadPool();
 
         logger.info("Starting servers");
-
-        Node nodeInfo = Config.getNode(selfNodeNumber);
 
         // Listeners
         ListenerManager lm = new ListenerManager(selfNodeNumber);

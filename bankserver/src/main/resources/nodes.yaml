@@ -1,12 +1,12 @@
 nodes:
   - ip: 10.0.1.12
-    ports: [5001, 5002, 5555] # 5555 for MARKER
+    ports: [5001, 5002, 5555, 5550, 5551, 5552, 5553] # 5555 for Init Algo, 555x for results
     neighbours: [1, 2]
   - ip: 10.0.1.13
     ports: [5000, 5003]
     neighbours: [0, 3]
   - ip: 10.0.1.14
-    ports: [5000, 50003]
+    ports: [5000, 5003]
     neighbours: [0, 3]
   - ip: 10.0.1.15
     ports: [5001, 5002]
