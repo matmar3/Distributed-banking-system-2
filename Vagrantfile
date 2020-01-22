@@ -1,6 +1,6 @@
 BOX_IMAGE = "hashicorp/bionic64"
 BOX_VER = "1.0.282"
-NODE_COUNT = 4
+NODE_COUNT = 3
 
 Vagrant.configure(2) do |config|
 
