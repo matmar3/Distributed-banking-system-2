@@ -96,11 +96,6 @@ public class ListenerManager {
                     if (!startStateLogger(neighbours)) {
                         return;
                     }
-                    try {
-                        sleep(10000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
                     // Stop logging messages from sender
                     if (message.getFrom() >= 0) {
                         stopLoggingChannelByNodeID(message.getFrom());
